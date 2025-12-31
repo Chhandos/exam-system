@@ -6,12 +6,19 @@ export default function TeacherPage() {
   const [status, setStatus] = useState('IDLE')
 
   async function createExam() {
-    const res = await fetch('http://15.207.109.205:3001/api/exam/create', { method: 'POST' })
-    const data = await res.json()
-
-    setExamCode(data.code)
-    setStatus('LIVE')
+  console.log("Clicked Create Exam button");  // Step 1: button works
+  try {
+    const res = await fetch('http://15.207.109.205:3001/api/exam/create', { method: 'POST' });
+    console.log("Fetch response object:", res); // Step 2: fetch sent
+    const data = await res.json();
+    console.log("Exam code from backend:", data); // Step 3: backend responded
+    setExamCode(data.code);
+    setStatus('LIVE');
+  } catch (err) {
+    console.error("Fetch failed:", err);  // Step 4: fetch failed
   }
+}
+
 
   async function endExam() {
     await fetch('http://15.207.109.205:3001/api/exam/end', {

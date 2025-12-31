@@ -16,28 +16,37 @@ app.use(express.json())
 
 // Create exam
 app.post('/api/exam/create', async (req, res) => {
-  const code = Math.random()
-    .toString(36)
-    .substring(2, 8)
-    .toUpperCase()
+  try {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const questions = [
-    { id: 1, q: 'What is cloud computing?' },
-    { id: 2, q: 'What is load balancing?' }
-  ]
+    const questions = [
+      { id: 1, q: 'What is cloud computing?' },
+      { id: 2, q: 'What is load balancing?' }
+    ];
 
-  await db.send(new PutCommand({
-    TableName: "LiveExams",
-    Item: {
+    const item = {
       examCode: code,
       status: "LIVE",
       questions,
+      submissions: [],
       createdAt: Date.now()
-    }
-  }))
+    };
 
-  res.json({ code })
-})
+    console.log("Creating item in DynamoDB:", item);
+
+    const result = await db.send(new PutCommand({
+      TableName: "LiveExams",
+      Item: item
+    }));
+
+    console.log("DynamoDB result:", result);
+
+    res.json({ code });
+  } catch (err) {
+    console.error("Error creating exam:", err); // ← This will print the real error
+    res.status(500).json({ error: "Failed to create exam" });
+  }
+});
 
 
 // Join exam
