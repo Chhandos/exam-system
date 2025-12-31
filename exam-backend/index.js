@@ -521,7 +521,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' })
 })
 
-const PORT = 3001
+const PORT = 80
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Simple Teacher Auth System on port ${PORT}`)
   console.log(`📧 Auth: Email-only (no passwords)`)
