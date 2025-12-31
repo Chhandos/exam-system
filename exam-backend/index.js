@@ -1,3 +1,5 @@
+console.log("🔥🔥 NEW INDEX.JS LOADED 🔥🔥");
+
 const express = require('express')
 const cors = require('cors')
 
@@ -12,6 +14,8 @@ const {
 const app = express()
 app.use(cors())
 app.use(express.json())
+
+
 
 
 // Create exam
