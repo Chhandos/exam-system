@@ -42,7 +42,7 @@ app.use(cors({
 }))
 
 // ✅ Handle OPTIONS preflight for all routes
-app.options('*', cors({
+app.options('/*', cors({
   origin: 'http://localhost:3000',
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
