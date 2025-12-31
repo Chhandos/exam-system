@@ -64,6 +64,14 @@ const authenticateTeacher = (req, res, next) => {
 
 // ========== SIMPLE TEACHER AUTH ==========
 
+
+
+app.get('/api/test', (req, res) => {
+  res.status(200).send('OK')
+})
+
+
+
 // Teacher Signup (Just name and email)
 app.post('/api/teacher/signup', async (req, res) => {
   try {
