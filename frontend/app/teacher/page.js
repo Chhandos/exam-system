@@ -6,7 +6,7 @@ export default function TeacherPage() {
   const [status, setStatus] = useState('IDLE')
 
   async function createExam() {
-    const res = await fetch('http://localhost:3001/api/exam/create', { method: 'POST' })
+    const res = await fetch('http://15.207.109.205:3001/api/exam/create', { method: 'POST' })
     const data = await res.json()
 
     setExamCode(data.code)
@@ -14,7 +14,7 @@ export default function TeacherPage() {
   }
 
   async function endExam() {
-    await fetch('http://localhost:3001/api/exam/end', {
+    await fetch('http://15.207.109.205:3001/api/exam/end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: examCode })

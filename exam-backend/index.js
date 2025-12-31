@@ -75,17 +75,39 @@ app.post('/api/exam/end', async (req, res) => {
 
 
 // Submit exam
-app.post('/api/exam/submit', (req, res) => {
-  const { code } = req.body
+app.post('/api/exam/submit', async (req, res) => {
+  try {
+    const { code, submission } = req.body;
 
-  if (!exams[code] || exams[code].status !== 'LIVE') {
-    return res.status(403).json({ error: 'Exam not active' })
+    const result = await db.send(new GetCommand({
+      TableName: "LiveExams",
+      Key: { examCode: code }
+    }));
+
+    if (!result.Item || result.Item.status !== 'LIVE') {
+      return res.status(403).json({ error: 'Exam not active' });
+    }
+
+    // Push submission into DynamoDB
+    const submissions = result.Item.submissions || [];
+    submissions.push(submission || "submitted");
+
+    await db.send(new PutCommand({
+      TableName: "LiveExams",
+      Item: {
+        ...result.Item,
+        submissions
+      }
+    }));
+
+    res.json({ message: 'Submitted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to submit exam" });
   }
+});
 
-  exams[code].submissions.push('submitted')
-  res.json({ message: 'Submitted' })
-})
 
-app.listen(3001, () => {
-  console.log('Express backend running on port 3001')
-})
+app.listen(3001, "0.0.0.0", () => {
+  console.log("Express backend running on port 3001");
+});

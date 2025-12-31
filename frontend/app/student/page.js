@@ -11,7 +11,7 @@ export default function StudentPage() {
   async function joinExam() {
     setError(null)
 
-    const res = await fetch('http://localhost:3001/api/exam/join', {
+    const res = await fetch('http://15.207.109.205:3001/api/exam/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
@@ -29,7 +29,7 @@ export default function StudentPage() {
   }
 
   async function submitExam() {
-    const res = await fetch('http://localhost:3001/api/exam/submit', {
+    const res = await fetch('http://15.207.109.205:3001/api/exam/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
