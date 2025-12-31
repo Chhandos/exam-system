@@ -106,11 +106,24 @@ app.post('/api/exam/create', async (req, res) => {
 });
 
 // Join exam - with mock fallback
+// Join exam - with mock fallback
 app.post('/api/exam/join', async (req, res) => {
   const { code } = req.body
   
+  console.log("\n🎯 ========== JOIN EXAM REQUEST ==========");
+  console.log("📝 Exam Code Received:", code);
+  console.log("📝 Full Request Body:", JSON.stringify(req.body, null, 2));
+  
+  if (!code) {
+    console.log("❌ ERROR: No code provided");
+    return res.status(400).json({ error: 'Exam code is required' });
+  }
+  
+  const normalizedCode = code.trim().toUpperCase();
+  console.log("🔄 Normalized Code:", normalizedCode);
+  
   if (!db) {
-    console.log("⚠️ Mock mode: Returning mock questions for code:", code);
+    console.log("⚠️ WARNING: Running in mock mode - DynamoDB not connected");
     return res.json({ 
       questions: [
         { id: 1, q: 'Mock: What is cloud computing?' },
@@ -121,23 +134,66 @@ app.post('/api/exam/join', async (req, res) => {
   }
 
   try {
-    const result = await db.send(new GetCommand({
+    console.log(`🔍 Querying DynamoDB Table: LiveExams`);
+    console.log(`🔍 Query Key: { examCode: "${normalizedCode}" }`);
+    
+    const command = new GetCommand({
       TableName: "LiveExams",
-      Key: { examCode: code }
-    }))
+      Key: { examCode: normalizedCode }
+    });
+    
+    console.log("🔍 GetCommand:", JSON.stringify(command, null, 2));
+    
+    const result = await db.send(command);
 
+    console.log("🔍 DynamoDB Response:", JSON.stringify(result, null, 2));
+    console.log("🔍 Item Found:", !!result.Item);
+    
     if (!result.Item) {
+      console.log(`❌ ERROR: No exam found with code "${normalizedCode}"`);
+      console.log(`❌ Check: Is table name correct? Is partition key "examCode"?`);
       return res.status(404).json({ error: 'Invalid exam code' })
     }
 
+    console.log(`✅ SUCCESS: Exam found!`);
+    console.log(`   Code: ${result.Item.examCode}`);
+    console.log(`   Status: ${result.Item.status}`);
+    console.log(`   Questions: ${result.Item.questions?.length || 0}`);
+    console.log(`   Created: ${new Date(result.Item.createdAt).toISOString()}`);
+    
     if (result.Item.status !== 'LIVE') {
+      console.log(`❌ ERROR: Exam status is "${result.Item.status}", expected "LIVE"`);
       return res.status(403).json({ error: 'Exam ended' })
     }
 
-    res.json({ questions: result.Item.questions })
+    console.log(`✅ Returning ${result.Item.questions?.length || 0} questions`);
+    console.log("=====================================\n");
+    
+    res.json({ 
+      questions: result.Item.questions,
+      examCode: result.Item.examCode,
+      status: result.Item.status
+    })
+    
   } catch (err) {
-    console.error("Error joining exam:", err);
-    res.status(500).json({ error: "Failed to join exam", details: err.message });
+    console.error("❌ FATAL ERROR in DynamoDB query:", err);
+    console.error("❌ Error name:", err.name);
+    console.error("❌ Error message:", err.message);
+    console.error("❌ Error code:", err.code);
+    
+    // Check for specific errors
+    if (err.name === 'ResourceNotFoundException') {
+      console.error("❌ TABLE NOT FOUND: LiveExams table doesn't exist!");
+    }
+    if (err.name === 'AccessDeniedException') {
+      console.error("❌ ACCESS DENIED: Check AWS credentials!");
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to join exam", 
+      details: err.message,
+      code: err.code 
+    });
   }
 })
 
