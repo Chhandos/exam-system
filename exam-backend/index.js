@@ -83,6 +83,14 @@ app.post('/api/exam/end', async (req, res) => {
 })
 
 
+
+app.get('/api/test', (req, res) => {
+  console.log("Frontend hit the /api/test endpoint!");
+  res.json({ message: "Backend is reachable!" });
+});
+
+
+
 // Submit exam
 app.post('/api/exam/submit', async (req, res) => {
   try {
