@@ -31,49 +31,10 @@ app.use((req, res, next) => {
 
 
 
-// Enhanced CORS configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true)
-    
-    // List of allowed origins
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://exam-system-alb-533064603.ap-south-1.elb.amazonaws.com',
-      'http://15.207.109.205:3000',
-      // Add your frontend domain here when deployed
-    ]
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('localhost')) {
-      callback(null, true)
-    } else {
-      console.log('Blocked by CORS:', origin)
-      callback(new Error('Not allowed by CORS'))
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Accept',
-    'Origin',
-    'X-Requested-With',
-    'X-Access-Token',
-    'X-Key',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Origin'
-  ],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}
+
 
 // Apply CORS middleware
-app.use(cors(corsOptions))
+app.use(cors())
 
 
 
