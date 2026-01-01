@@ -132,7 +132,11 @@ app.get('/api/instance', (req, res) => {
   console.log('📤 Sending:', instanceId);
   res.setHeader('Content-Type', 'application/json');
   res.end(jsonString);
-}); so u say this will work
+}); 
+
+
+
+
 app.get('/api/load-test', (req, res) => {
   // Count requests per instance
   if (!global.requestCount) global.requestCount = 0;
