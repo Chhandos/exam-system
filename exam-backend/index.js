@@ -74,7 +74,7 @@ app.get('/api/test', (req, res) => {
 
 app.get('/api/instance', (req, res) => {
   res.json({
-    instance: process.env.HOSTNAME,
+    instance: os.hostname(),
     time: new Date().toISOString()
   })
 })
