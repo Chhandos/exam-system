@@ -3,6 +3,8 @@ console.log("🔥🔥 SIMPLE TEACHER AUTH SYSTEM LOADED 🔥🔥");
 const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
+const os = require('os');
+
 
 // Try to load DynamoDB
 let db, PutCommand, GetCommand, DeleteCommand, ScanCommand, UpdateCommand;
