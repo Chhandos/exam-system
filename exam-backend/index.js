@@ -90,27 +90,15 @@ app.get('/api/test', (req, res) => {
 
 
 
-app.get('/api/instance', async (req, res) => {
-  console.log('🔍 /api/instance endpoint called');
+app.get('/api/instance', (req, res) => {
+  console.log('✅ /api/instance endpoint called');
   
-  // SIMPLE FIX - Always return a value for "instance"
-  const hostname = os.hostname();
-  
-  // If hostname is empty/undefined, use a fallback
-  let displayName;
-  if (!hostname || hostname === '' || hostname === 'localhost') {
-    displayName = `ec2-instance-${process.pid}`;
-  } else {
-    displayName = hostname;
-  }
-  
-  // Always return instance field with a value
   res.json({
-    instance: displayName,
-    time: new Date().toISOString()
+    instance: `ec2-instance-${process.pid}-${Date.now()}`,
+    time: new Date().toISOString(),
+    message: "Hardcoded instance ID"
   });
 });
-
 
 // Teacher Signup (Just name and email)
 app.post('/api/teacher/signup', async (req, res) => {
