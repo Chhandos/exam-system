@@ -68,6 +68,22 @@ const authenticateTeacher = (req, res, next) => {
 
 
 
+app.get('/api/test-hostname', (req, res) => {
+  const hostname = os.hostname();
+  
+  res.json({
+    hostname: hostname,
+    hostnameType: typeof hostname,
+    hostnameLength: hostname ? hostname.length : 0,
+    isEmptyString: hostname === '',
+    isNull: hostname === null,
+    isUndefined: hostname === undefined,
+    rawOutput: `"${hostname}"`
+  });
+});
+
+
+
 app.get('/api/test', (req, res) => {
   res.status(200).send('OK')
 })
