@@ -116,24 +116,58 @@ app.get('/api/test', (req, res) => {
 
 
 
-app.get('/api/instance', (req, res) => {
-  console.log('🚨 NUCLEAR FIX - /api/instance');
+app.get('/api/instance', async (req, res) => {
+  console.log('🔄 Getting real EC2 instance ID...');
   
-  // Send RAW JSON as a STRING - no objects, no variables
+  let instanceId;
+  try {
+    // Method 1: Try curl command (more reliable)
+    const { execSync } = require('child_process');
+    instanceId = execSync('curl -s --connect-timeout 2 http://169.254.169.254/latest/meta-data/instance-id', {
+      encoding: 'utf8'
+    }).trim();
+    console.log('✅ Got instance ID via curl:', instanceId);
+    
+  } catch (curlErr) {
+    console.log('❌ Curl failed, trying https module...');
+    
+    try {
+      // Method 2: Try https module
+      const https = require('https');
+      instanceId = await new Promise((resolve) => {
+        const req = https.get('http://169.254.169.254/latest/meta-data/instance-id', (response) => {
+          let data = '';
+          response.on('data', chunk => data += chunk);
+          response.on('end', () => resolve(data.trim()));
+        });
+        
+        req.on('error', () => resolve('metadata-error'));
+        req.setTimeout(2000, () => {
+          req.destroy();
+          resolve('timeout');
+        });
+      });
+      console.log('✅ Got instance ID via https:', instanceId);
+      
+    } catch (httpsErr) {
+      console.log('❌ All methods failed, using fallback');
+      instanceId = 'ec2-fallback-' + Date.now();
+    }
+  }
+  
+  // Send as RAW JSON string (this format works!)
   const jsonString = `{
-    "instance": "EC2-INSTANCE-FORCED",
+    "instance": "${instanceId}",
     "time": "${new Date().toISOString()}",
     "pid": ${process.pid},
-    "test": "This must appear"
+    "region": "${process.env.AWS_REGION || 'ap-south-1'}"
   }`;
   
-  console.log('Sending RAW JSON string:', jsonString);
+  console.log('📤 Sending:', jsonString);
   
-  // Set headers and send raw string
   res.setHeader('Content-Type', 'application/json');
   res.end(jsonString);
 });
-
 
 app.get('/api/load-test', (req, res) => {
   // Count requests per instance
