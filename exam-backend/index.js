@@ -93,62 +93,23 @@ app.get('/api/test', (req, res) => {
 app.get('/api/instance', async (req, res) => {
   console.log('🔍 /api/instance endpoint called');
   
-  // Method 1: Try EC2 metadata service (recommended)
-  let instanceId = null;
-  try {
-    const https = require('https');
-    
-    instanceId = await new Promise((resolve, reject) => {
-      const options = {
-        timeout: 1000
-      };
-      
-      const req = https.get('http://169.254.169.254/latest/meta-data/instance-id', options, (response) => {
-        let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => resolve(data.trim()));
-      });
-      
-      req.on('error', (err) => {
-        console.log('Metadata error:', err.message);
-        resolve(null);
-      });
-      
-      req.setTimeout(1000, () => {
-        req.destroy();
-        resolve('timeout');
-      });
-    });
-    
-    console.log('Instance ID from metadata:', instanceId);
-  } catch (err) {
-    console.log('Failed to get metadata:', err.message);
-  }
+  // SIMPLE FIX - Always return a value for "instance"
+  const hostname = os.hostname();
   
-  // Method 2: Use hostname or fallback
-  const systemHostname = os.hostname();
-  console.log('System hostname:', systemHostname);
-  
-  // Determine what to display
+  // If hostname is empty/undefined, use a fallback
   let displayName;
-  if (instanceId && instanceId !== 'timeout') {
-    displayName = instanceId; // Use EC2 instance ID
-  } else if (systemHostname && systemHostname !== 'localhost' && systemHostname !== '') {
-    displayName = systemHostname; // Use system hostname
+  if (!hostname || hostname === '' || hostname === 'localhost') {
+    displayName = `ec2-instance-${process.pid}`;
   } else {
-    displayName = `ec2-instance-${process.pid}`; // Fallback
+    displayName = hostname;
   }
   
+  // Always return instance field with a value
   res.json({
     instance: displayName,
-    systemHostname: systemHostname || 'empty',
-    metadataInstanceId: instanceId || 'not-available',
-    source: instanceId ? 'aws-metadata' : (systemHostname ? 'os.hostname' : 'fallback'),
-    time: new Date().toISOString(),
-    pid: process.pid
+    time: new Date().toISOString()
   });
 });
-
 
 
 // Teacher Signup (Just name and email)
