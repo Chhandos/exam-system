@@ -121,38 +121,17 @@ app.get('/api/instance', async (req, res) => {
   
   let instanceId;
   try {
-    // Method 1: Try curl command (more reliable)
+    // Try to get real EC2 instance ID
     const { execSync } = require('child_process');
     instanceId = execSync('curl -s --connect-timeout 2 http://169.254.169.254/latest/meta-data/instance-id', {
       encoding: 'utf8'
     }).trim();
-    console.log('✅ Got instance ID via curl:', instanceId);
+    console.log('✅ Real EC2 Instance ID:', instanceId);
     
-  } catch (curlErr) {
-    console.log('❌ Curl failed, trying https module...');
-    
-    try {
-      // Method 2: Try https module
-      const https = require('https');
-      instanceId = await new Promise((resolve) => {
-        const req = https.get('http://169.254.169.254/latest/meta-data/instance-id', (response) => {
-          let data = '';
-          response.on('data', chunk => data += chunk);
-          response.on('end', () => resolve(data.trim()));
-        });
-        
-        req.on('error', () => resolve('metadata-error'));
-        req.setTimeout(2000, () => {
-          req.destroy();
-          resolve('timeout');
-        });
-      });
-      console.log('✅ Got instance ID via https:', instanceId);
-      
-    } catch (httpsErr) {
-      console.log('❌ All methods failed, using fallback');
-      instanceId = 'ec2-fallback-' + Date.now();
-    }
+  } catch (err) {
+    console.log('❌ Could not get EC2 metadata:', err.message);
+    // Fallback to unique ID
+    instanceId = `ec2-fallback-${Date.now()}`;
   }
   
   // Send as RAW JSON string (this format works!)
@@ -160,11 +139,11 @@ app.get('/api/instance', async (req, res) => {
     "instance": "${instanceId}",
     "time": "${new Date().toISOString()}",
     "pid": ${process.pid},
-    "region": "${process.env.AWS_REGION || 'ap-south-1'}"
+    "region": "${process.env.AWS_REGION || 'ap-south-1'}",
+    "source": "ec2-metadata"
   }`;
   
-  console.log('📤 Sending:', jsonString);
-  
+  console.log('📤 Sending response');
   res.setHeader('Content-Type', 'application/json');
   res.end(jsonString);
 });
