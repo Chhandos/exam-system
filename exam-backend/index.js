@@ -72,6 +72,16 @@ app.get('/api/test', (req, res) => {
 
 
 
+app.get('/api/instance', (req, res) => {
+  res.json({
+    instance: process.env.HOSTNAME,
+    time: new Date().toISOString()
+  })
+})
+
+
+
+
 // Teacher Signup (Just name and email)
 app.post('/api/teacher/signup', async (req, res) => {
   try {
