@@ -5,6 +5,32 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const os = require('os');
 
+// ========== CREATE UNIQUE INSTANCE ID ==========
+const fs = require('fs');
+const path = require('path');
+
+let INSTANCE_ID;
+
+try {
+  const instanceIdFile = path.join(__dirname, '.instance-id');
+  
+  // Check if instance ID file exists
+  if (fs.existsSync(instanceIdFile)) {
+    INSTANCE_ID = fs.readFileSync(instanceIdFile, 'utf8').trim();
+  } else {
+    // Create new unique instance ID
+    INSTANCE_ID = `ec2-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    fs.writeFileSync(instanceIdFile, INSTANCE_ID);
+    console.log(`✅ Created new instance ID: ${INSTANCE_ID}`);
+  }
+  
+  console.log(`🆔 Using instance ID: ${INSTANCE_ID}`);
+} catch (err) {
+  // Fallback if file operations fail
+  INSTANCE_ID = `ec2-fallback-${process.pid}`;
+  console.log(`⚠️ Using fallback instance ID: ${INSTANCE_ID}`);
+}
+
 
 // Try to load DynamoDB
 let db, PutCommand, GetCommand, DeleteCommand, ScanCommand, UpdateCommand;
@@ -91,14 +117,34 @@ app.get('/api/test', (req, res) => {
 
 
 app.get('/api/instance', (req, res) => {
-  console.log('✅ /api/instance endpoint called');
+  console.log(`📡 Request handled by instance: ${INSTANCE_ID}`);
   
   res.json({
-    instance: `ec2-instance-${process.pid}-${Date.now()}`,
+    instance: INSTANCE_ID,
     time: new Date().toISOString(),
-    message: "Hardcoded instance ID"
+    pid: process.pid,
+    region: process.env.AWS_REGION || 'ap-south-1',
+    note: 'Each EC2 instance has unique ID stored in .instance-id file'
   });
 });
+
+
+
+
+app.get('/api/load-test', (req, res) => {
+  // Count requests per instance
+  if (!global.requestCount) global.requestCount = 0;
+  global.requestCount++;
+  
+  res.json({
+    instance: INSTANCE_ID,
+    requestNumber: global.requestCount,
+    time: new Date().toISOString(),
+    message: `This instance (${INSTANCE_ID}) has handled ${global.requestCount} requests`
+  });
+});
+
+
 
 // Teacher Signup (Just name and email)
 app.post('/api/teacher/signup', async (req, res) => {
