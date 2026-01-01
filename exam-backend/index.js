@@ -116,18 +116,49 @@ app.get('/api/test', (req, res) => {
 
 
 
-app.get('/api/instance', (req, res) => {
-  console.log(`📡 Request handled by instance: ${INSTANCE_ID}`);
+app.get('/api/instance', async (req, res) => {
+  console.log('🔄 Getting real EC2 instance ID...');
   
-  res.json({
-    instance: INSTANCE_ID,
-    time: new Date().toISOString(),
-    pid: process.pid,
-    region: process.env.AWS_REGION || 'ap-south-1',
-    note: 'Each EC2 instance has unique ID stored in .instance-id file'
-  });
+  try {
+    // Get instance ID from EC2 metadata service
+    const https = require('https');
+    
+    const instanceId = await new Promise((resolve) => {
+      const req = https.get('http://169.254.169.254/latest/meta-data/instance-id', (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => resolve(data.trim()));
+      });
+      
+      req.on('error', () => resolve('metadata-error'));
+      req.setTimeout(2000, () => {
+        req.destroy();
+        resolve('timeout');
+      });
+    });
+    
+    console.log('✅ EC2 Instance ID:', instanceId);
+    
+    res.json({
+      instance: instanceId,
+      time: new Date().toISOString(),
+      source: 'ec2-metadata',
+      region: process.env.AWS_REGION || 'ap-south-1'
+    });
+    
+  } catch (err) {
+    console.log('❌ Failed to get metadata:', err.message);
+    
+    // Fallback to hostname
+    const hostname = require('os').hostname() || 'unknown';
+    res.json({
+      instance: hostname,
+      time: new Date().toISOString(),
+      source: 'os.hostname-fallback',
+      error: err.message
+    });
+  }
 });
-
 
 
 
