@@ -116,38 +116,23 @@ app.get('/api/test', (req, res) => {
 
 
 
-app.get('/api/instance', async (req, res) => {
-  console.log('🔄 Getting real EC2 instance ID...');
+app.get('/api/instance', (req, res) => {
+  console.log('🔄 /api/instance called');
   
-  let instanceId;
-  try {
-    // Try to get real EC2 instance ID
-    const { execSync } = require('child_process');
-    instanceId = execSync('curl -s --connect-timeout 2 http://169.254.169.254/latest/meta-data/instance-id', {
-      encoding: 'utf8'
-    }).trim();
-    console.log('✅ Real EC2 Instance ID:', instanceId);
-    
-  } catch (err) {
-    console.log('❌ Could not get EC2 metadata:', err.message);
-    // Fallback to unique ID
-    instanceId = `ec2-fallback-${Date.now()}`;
-  }
+  // Always return a value for instance
+  const instanceId = `ec2-${process.pid}-${Date.now()}`;
   
-  // Send as RAW JSON string (this format works!)
   const jsonString = `{
     "instance": "${instanceId}",
     "time": "${new Date().toISOString()}",
     "pid": ${process.pid},
-    "region": "${process.env.AWS_REGION || 'ap-south-1'}",
-    "source": "ec2-metadata"
+    "region": "${process.env.AWS_REGION || 'ap-south-1'}"
   }`;
   
-  console.log('📤 Sending response');
+  console.log('📤 Sending:', instanceId);
   res.setHeader('Content-Type', 'application/json');
   res.end(jsonString);
-});
-
+}); so u say this will work
 app.get('/api/load-test', (req, res) => {
   // Count requests per instance
   if (!global.requestCount) global.requestCount = 0;
