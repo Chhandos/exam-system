@@ -117,46 +117,74 @@ app.get('/api/test', (req, res) => {
 
 
 app.get('/api/instance', async (req, res) => {
-  console.log('🔄 Getting real EC2 instance ID...');
+  console.log('🔄 /api/instance DEBUG VERSION CALLED');
   
   try {
     // Get instance ID from EC2 metadata service
     const https = require('https');
     
-    const instanceId = await new Promise((resolve) => {
+    console.log('Attempting to get metadata...');
+    
+    const instanceId = await new Promise((resolve, reject) => {
       const req = https.get('http://169.254.169.254/latest/meta-data/instance-id', (response) => {
+        console.log('Metadata response status:', response.statusCode);
         let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => resolve(data.trim()));
+        response.on('data', chunk => {
+          data += chunk;
+          console.log('Received chunk:', chunk.toString());
+        });
+        response.on('end', () => {
+          console.log('Metadata received:', data.trim());
+          resolve(data.trim());
+        });
       });
       
-      req.on('error', () => resolve('metadata-error'));
+      req.on('error', (err) => {
+        console.log('Metadata request error:', err.message);
+        resolve('metadata-error');
+      });
+      
       req.setTimeout(2000, () => {
+        console.log('Metadata request timeout');
         req.destroy();
         resolve('timeout');
       });
     });
     
-    console.log('✅ EC2 Instance ID:', instanceId);
+    console.log('Final instanceId value:', instanceId);
+    console.log('Type of instanceId:', typeof instanceId);
     
-    res.json({
-      instance: instanceId,
+    // Create response with ALL fields guaranteed
+    const response = {
+      instance: instanceId || 'UNDEFINED_INSTANCE_ID',
       time: new Date().toISOString(),
       source: 'ec2-metadata',
-      region: process.env.AWS_REGION || 'ap-south-1'
-    });
+      region: process.env.AWS_REGION || 'ap-south-1',
+      debug: {
+        instanceIdValue: instanceId,
+        instanceIdType: typeof instanceId,
+        pid: process.pid
+      }
+    };
+    
+    console.log('Full response object:', JSON.stringify(response, null, 2));
+    
+    res.json(response);
     
   } catch (err) {
-    console.log('❌ Failed to get metadata:', err.message);
+    console.log('❌ CATCH BLOCK - Error:', err.message);
+    console.log('❌ Error stack:', err.stack);
     
-    // Fallback to hostname
-    const hostname = require('os').hostname() || 'unknown';
-    res.json({
-      instance: hostname,
+    // Fallback with guaranteed fields
+    const response = {
+      instance: 'CATCH-BLOCK-FALLBACK',
       time: new Date().toISOString(),
-      source: 'os.hostname-fallback',
+      source: 'catch-block',
       error: err.message
-    });
+    };
+    
+    console.log('Fallback response:', response);
+    res.json(response);
   }
 });
 
