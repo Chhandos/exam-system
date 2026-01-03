@@ -62,12 +62,26 @@ app.use((req, res, next) => {
 
 
 // Apply CORS middleware
+// app.use(cors({
+//   origin: 'http://localhost:3000',
+//   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+//   allowedHeaders: ['Content-Type','Authorization'],
+//   credentials: true
+// }));
+
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: '*',  // Allow ALL origins
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true
 }));
+
+
+
+
+
+
 
 // ✅ Handle OPTIONS preflight for all routes
 
