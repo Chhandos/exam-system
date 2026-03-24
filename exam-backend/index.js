@@ -105,6 +105,41 @@ app.post('/api/exam/create', async (req, res) => {
   }
 });
 
+
+app.post('/api/teacher/login', (req, res) => {
+  const { email } = req.body;
+
+  console.log("Login attempt:", email);
+
+  // Return exactly what frontend expects
+  res.json({
+    token: "mock-token-123",
+    teacherId: "t1",
+    name: "Demo Teacher",
+    email: email
+  });
+});
+
+
+
+app.post('/api/teacher/signup', (req, res) => {
+  const { email, name } = req.body;
+
+  console.log("Signup:", email, name);
+
+  res.json({
+    token: "mock-token-123",
+    teacherId: "t1",
+    name: name || "New Teacher",
+    email: email
+  });
+});
+
+
+
+
+
+
 // Join exam - with mock fallback
 app.post('/api/exam/join', async (req, res) => {
   const { code } = req.body
