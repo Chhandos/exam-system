@@ -163,12 +163,21 @@ app.get('/api/teacher/exams', async (req, res) => {
 
 // Create exam
 app.post('/api/exam/create', async (req, res) => {
+  const { examTitle, questions } = req.body;
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: "Exam must have at least one question" });
+  }
+
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const questions = [
-    { id: 1, q: 'What is cloud computing?' },
-    { id: 2, q: 'What is load balancing?' }
-  ];
-  const item = { examCode: code, status: "LIVE", questions, submissions: [], createdAt: Date.now() };
+  const item = {
+    examCode: code,
+    examTitle: examTitle || "Untitled Exam",
+    status: "LIVE",
+    questions: questions.map((q, idx) => ({ id: idx + 1, q: q.text || q })), 
+    submissions: [],
+    createdAt: Date.now()
+  };
 
   try {
     if (!db) return res.json({ code, warning: "Running in mock mode (DynamoDB not configured)" });
