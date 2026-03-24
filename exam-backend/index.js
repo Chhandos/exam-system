@@ -54,6 +54,44 @@ app.get('/', (req, res) => {
   });
 });
 
+
+// Fetch all exams - for dashboard
+app.get('/api/teacher/exams', async (req, res) => {
+  try {
+    if (!db) {
+      console.log("⚠️ Mock mode: returning mock exams");
+      return res.json([
+        { examCode: "ABC123", examTitle: "Cloud Computing", status: "LIVE", questionsCount: 2, submissionsCount: 0, averageScore: 0, createdAt: Date.now() },
+        { examCode: "XYZ789", examTitle: "Networking", status: "ENDED", questionsCount: 3, submissionsCount: 1, averageScore: 75, createdAt: Date.now() - 86400000 }
+      ]);
+    }
+
+    // Scan DynamoDB table for all exams
+    const { ScanCommand } = require("@aws-sdk/lib-dynamodb");
+    const result = await db.send(new ScanCommand({
+      TableName: "LiveExams"
+    }));
+
+    const exams = result.Items.map(item => ({
+      examCode: item.examCode,
+      examTitle: item.examTitle || "Untitled Exam",
+      status: item.status || "LIVE",
+      questionsCount: (item.questions || []).length,
+      submissionsCount: (item.submissions || []).length,
+      averageScore: item.averageScore || 0,
+      createdAt: item.createdAt
+    }));
+
+    res.json(exams);
+  } catch (err) {
+    console.error("Error fetching exams:", err);
+    res.status(500).json({ error: "Failed to fetch exams", details: err.message });
+  }
+});
+
+
+
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
