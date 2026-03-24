@@ -108,36 +108,34 @@ app.get('/health', (req, res) => {
 app.get('/api/teacher/exam/:code', async (req, res) => {
   const { code } = req.params;
 
+  // Mock fallback if DynamoDB not available
   if (!db) {
-    // Mock mode
+    console.log("⚠️ Mock mode: returning mock exam for code", code);
     return res.json({
-      examCode: code,
-      examTitle: "Mock Exam Title",
-      questions: [
-        { id: 1, q: 'Mock: What is cloud computing?' },
-        { id: 2, q: 'Mock: What is load balancing?' }
-      ],
-      submissions: [
-        {
-          studentName: "John Doe",
-          score: 8,
-          total: 10,
-          percentage: 80,
-          submittedAt: Date.now(),
-          results: [
-            {
-              questionText: "What is cloud computing?",
-              studentAnswer: 1,
-              correctAnswer: 1,
-              isCorrect: true,
-              options: [
-                { id: 1, text: "Cloud computing" },
-                { id: 2, text: "Local server" }
-              ]
-            }
-          ]
-        }
-      ],
+      exam: {
+        examCode: code,
+        examTitle: "Mock Exam",
+        questionsCount: 2,
+        submissionsCount: 1,
+        submissions: [
+          {
+            studentName: "John Doe",
+            score: 1,
+            total: 2,
+            percentage: 50,
+            submittedAt: Date.now(),
+            results: [
+              {
+                questionText: "Q1?",
+                isCorrect: true,
+                correctAnswer: 1,
+                studentAnswer: 1,
+                options: [{ id: 1, text: "A" }]
+              }
+            ]
+          }
+        ]
+      },
       warning: "Running in mock mode"
     });
   }
@@ -150,13 +148,20 @@ app.get('/api/teacher/exam/:code', async (req, res) => {
 
     if (!result.Item) return res.status(404).json({ error: 'Exam not found' });
 
-    res.json(result.Item);
+    const exam = {
+      examCode: result.Item.examCode,
+      examTitle: result.Item.title || "Untitled Exam",
+      questionsCount: result.Item.questions.length,
+      submissionsCount: result.Item.submissions.length,
+      submissions: result.Item.submissions
+    };
+
+    res.json({ exam });
   } catch (err) {
     console.error("Error fetching exam:", err);
-    res.status(500).json({ error: 'Failed to fetch exam', details: err.message });
+    res.status(500).json({ error: "Failed to fetch exam", details: err.message });
   }
 });
-
 
 
 app.get('/api/teacher/exam/:code', async (req, res) => {
