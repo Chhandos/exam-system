@@ -215,33 +215,25 @@ app.get('/api/teacher/exam/:code', async (req, res) => {
 // Create exam - with mock fallback
 app.post('/api/exam/create', async (req, res) => {
   try {
+    const { title, questions } = req.body; // get data from frontend
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    const questions = [
-      { id: 1, q: 'What is cloud computing?' },
-      { id: 2, q: 'What is load balancing?' }
-    ];
 
     const item = {
       examCode: code,
+      examTitle: title || "Untitled Exam",
       status: "LIVE",
-      questions,
+      questions: questions || [], // use frontend-sent questions
       submissions: [],
       createdAt: Date.now()
     };
 
     console.log("Creating exam with code:", code);
 
-    // Use mock if DynamoDB not available
     if (!db) {
-      console.log("⚠️ Running in mock mode - exam not saved to DB");
-      return res.json({ 
-        code,
-        warning: "Running in mock mode (DynamoDB not configured)"
-      });
+      return res.json({ code, warning: "Running in mock mode (DynamoDB not configured)" });
     }
 
-    const result = await db.send(new PutCommand({
+    await db.send(new PutCommand({
       TableName: "LiveExams",
       Item: item
     }));
@@ -253,7 +245,6 @@ app.post('/api/exam/create', async (req, res) => {
     res.status(500).json({ error: "Failed to create exam", details: err.message });
   }
 });
-
 // Join exam - with mock fallback
 app.post('/api/exam/join', async (req, res) => {
   const { code } = req.body
