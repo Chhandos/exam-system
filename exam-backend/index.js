@@ -1,17 +1,19 @@
-
 console.log("🔥🔥 FIXED INDEX.JS LOADED 🔥🔥");
 
 const express = require('express')
 const cors = require('cors')
+const os = require('os')
+const http = require('http')
 
-// Try to load DynamoDB, but don't crash if it fails
-let db, PutCommand, GetCommand, DeleteCommand;
+// DynamoDB setup
+let db, PutCommand, GetCommand, DeleteCommand, ScanCommand;
 try {
   db = require("./dynamo");
   const awsSdk = require("@aws-sdk/lib-dynamodb");
   PutCommand = awsSdk.PutCommand;
   GetCommand = awsSdk.GetCommand;
   DeleteCommand = awsSdk.DeleteCommand;
+  ScanCommand = awsSdk.ScanCommand;
   console.log("✅ DynamoDB modules loaded successfully");
 } catch (err) {
   console.error("⚠️ Warning: Could not load DynamoDB modules:", err.message);
@@ -20,7 +22,7 @@ try {
 
 const app = express()
 
-// Add request logging middleware FIRST
+// Request logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -29,7 +31,7 @@ app.use((req, res, next) => {
 app.use(cors())
 app.use(express.json())
 
-// Test endpoint - NOW AT THE TOP
+// Test endpoint
 app.get('/api/test', (req, res) => {
   console.log("✅✅✅ /api/test endpoint hit!");
   res.json({ 
@@ -49,44 +51,13 @@ app.get('/', (req, res) => {
       createExam: "POST /api/exam/create",
       joinExam: "POST /api/exam/join",
       endExam: "POST /api/exam/end",
-      submitExam: "POST /api/exam/submit"
+      submitExam: "POST /api/exam/submit",
+      teacherExams: "GET /api/teacher/exams",
+      teacherLogin: "POST /api/teacher/login",
+      teacherSignup: "POST /api/teacher/signup"
     }
   });
 });
-
-
-// app.get('/api/teacher/exams', (req, res) => {
-//   console.log("Fetching teacher exams");
-
-//   // Mock response
-//   res.json({
-//     exams: [
-//       { examCode: "ABC123", status: "LIVE" },
-//       { examCode: "XYZ789", status: "ENDED" }
-//     ]
-//   });
-// });
-
-
-const { ScanCommand } = require("@aws-sdk/lib-dynamodb");
-
-app.get('/api/teacher/exams', async (req, res) => {
-  try {
-    const result = await db.send(new ScanCommand({
-      TableName: "LiveExams"
-    }));
-
-    res.json({
-      exams: result.Items || []
-    });
-
-  } catch (err) {
-    console.error("Error fetching exams:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
 
 // Health check
 app.get('/health', (req, res) => {
@@ -97,255 +68,195 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Create exam - with mock fallback
-app.post('/api/exam/create', async (req, res) => {
+// --------------------
+// TEACHER ROUTES
+// --------------------
+
+// Signup - writes to DynamoDB
+app.post('/api/teacher/signup', async (req, res) => {
+  const { email, name } = req.body;
+
+  if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
+
   try {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const existing = await db.send(new GetCommand({ TableName: "Teachers", Key: { email } }));
+    if (existing.Item) return res.status(409).json({ error: "Teacher already exists" });
 
-    const questions = [
-      { id: 1, q: 'What is cloud computing?' },
-      { id: 2, q: 'What is load balancing?' }
-    ];
+    const teacherId = "t" + Date.now();
 
-    const item = {
-      examCode: code,
-      status: "LIVE",
-      questions,
-      submissions: [],
-      createdAt: Date.now()
-    };
-
-    console.log("Creating exam with code:", code);
-
-    // Use mock if DynamoDB not available
-    if (!db) {
-      console.log("⚠️ Running in mock mode - exam not saved to DB");
-      return res.json({ 
-        code,
-        warning: "Running in mock mode (DynamoDB not configured)"
-      });
-    }
-
-    const result = await db.send(new PutCommand({
-      TableName: "LiveExams",
-      Item: item
+    await db.send(new PutCommand({
+      TableName: "Teachers",
+      Item: { teacherId, email, name }
     }));
 
-    console.log("✅ Exam created in DynamoDB:", code);
+    res.json({ token: "real-token-123", teacherId, name, email });
+
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ error: "Failed to signup", details: err.message });
+  }
+});
+
+// Login - reads from DynamoDB
+app.post('/api/teacher/login', async (req, res) => {
+  const { email } = req.body;
+
+  if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
+
+  try {
+    const result = await db.send(new GetCommand({
+      TableName: "Teachers",
+      Key: { email }
+    }));
+
+    if (!result.Item) return res.status(404).json({ error: "Teacher not found. Please sign up first." });
+
+    res.json({
+      token: "real-token-123",
+      teacherId: result.Item.teacherId,
+      name: result.Item.name,
+      email: result.Item.email
+    });
+
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
+
+// Fetch all exams
+app.get('/api/teacher/exams', async (req, res) => {
+  if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
+
+  try {
+    const result = await db.send(new ScanCommand({ TableName: "LiveExams" }));
+    res.json({ exams: result.Items || [] });
+  } catch (err) {
+    console.error("Error fetching exams:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------------
+// EXAM ROUTES
+// --------------------
+
+// Create exam
+app.post('/api/exam/create', async (req, res) => {
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const questions = [
+    { id: 1, q: 'What is cloud computing?' },
+    { id: 2, q: 'What is load balancing?' }
+  ];
+  const item = { examCode: code, status: "LIVE", questions, submissions: [], createdAt: Date.now() };
+
+  try {
+    if (!db) return res.json({ code, warning: "Running in mock mode (DynamoDB not configured)" });
+
+    await db.send(new PutCommand({ TableName: "LiveExams", Item: item }));
     res.json({ code });
+
   } catch (err) {
     console.error("Error creating exam:", err);
     res.status(500).json({ error: "Failed to create exam", details: err.message });
   }
 });
 
-
-app.post('/api/teacher/login', (req, res) => {
-  const { email } = req.body;
-
-  console.log("Login attempt:", email);
-
-  // Return exactly what frontend expects
-  res.json({
-    token: "mock-token-123",
-    teacherId: "t1",
-    name: "Demo Teacher",
-    email: email
-  });
-});
-
-
-
-app.post('/api/teacher/signup', (req, res) => {
-  const { email, name } = req.body;
-
-  console.log("Signup:", email, name);
-
-  res.json({
-    token: "mock-token-123",
-    teacherId: "t1",
-    name: name || "New Teacher",
-    email: email
-  });
-});
-
-
-
-
-
-
-// Join exam - with mock fallback
+// Join exam
 app.post('/api/exam/join', async (req, res) => {
-  const { code } = req.body
-  
-  if (!db) {
-    console.log("⚠️ Mock mode: Returning mock questions for code:", code);
-    return res.json({ 
-      questions: [
-        { id: 1, q: 'Mock: What is cloud computing?' },
-        { id: 2, q: 'Mock: What is load balancing?' }
-      ],
-      warning: "Running in mock mode"
-    });
-  }
+  const { code } = req.body;
+
+  if (!db) return res.json({ questions: [], warning: "Running in mock mode" });
 
   try {
-    const result = await db.send(new GetCommand({
-      TableName: "LiveExams",
-      Key: { examCode: code }
-    }))
+    const result = await db.send(new GetCommand({ TableName: "LiveExams", Key: { examCode: code } }));
+    if (!result.Item) return res.status(404).json({ error: 'Invalid exam code' });
+    if (result.Item.status !== 'LIVE') return res.status(403).json({ error: 'Exam ended' });
 
-    if (!result.Item) {
-      return res.status(404).json({ error: 'Invalid exam code' })
-    }
+    res.json({ questions: result.Item.questions });
 
-    if (result.Item.status !== 'LIVE') {
-      return res.status(403).json({ error: 'Exam ended' })
-    }
-
-    res.json({ questions: result.Item.questions })
   } catch (err) {
     console.error("Error joining exam:", err);
     res.status(500).json({ error: "Failed to join exam", details: err.message });
   }
-})
+});
 
-// End exam - with mock fallback
+// End exam
 app.post('/api/exam/end', async (req, res) => {
-  const { code } = req.body
-  
-  if (!db) {
-    console.log("⚠️ Mock mode: Would delete exam:", code);
-    return res.json({ 
-      message: 'Exam ended (mock mode)',
-      warning: "Running in mock mode"
-    });
-  }
+  const { code } = req.body;
+  if (!db) return res.json({ message: 'Exam ended (mock mode)', warning: "Running in mock mode" });
 
   try {
-    await db.send(new DeleteCommand({
-      TableName: "LiveExams",
-      Key: { examCode: code }
-    }))
-
-    res.json({ message: 'Exam ended' })
+    await db.send(new DeleteCommand({ TableName: "LiveExams", Key: { examCode: code } }));
+    res.json({ message: 'Exam ended' });
   } catch (err) {
     console.error("Error ending exam:", err);
     res.status(500).json({ error: "Failed to end exam", details: err.message });
   }
-})
+});
 
-// Submit exam - with mock fallback
+// Submit exam
 app.post('/api/exam/submit', async (req, res) => {
+  const { code, submission } = req.body;
+
+  if (!db) return res.json({ message: 'Submitted (mock mode)', warning: "Running in mock mode" });
+
   try {
-    const { code, submission } = req.body;
-
-    if (!db) {
-      console.log("⚠️ Mock mode: Would submit for exam:", code);
-      return res.json({ 
-        message: 'Submitted (mock mode)',
-        warning: "Running in mock mode"
-      });
-    }
-
-    const result = await db.send(new GetCommand({
-      TableName: "LiveExams",
-      Key: { examCode: code }
-    }));
-
-    if (!result.Item || result.Item.status !== 'LIVE') {
-      return res.status(403).json({ error: 'Exam not active' });
-    }
+    const result = await db.send(new GetCommand({ TableName: "LiveExams", Key: { examCode: code } }));
+    if (!result.Item || result.Item.status !== 'LIVE') return res.status(403).json({ error: 'Exam not active' });
 
     const submissions = result.Item.submissions || [];
     submissions.push(submission || "submitted");
 
-    await db.send(new PutCommand({
-      TableName: "LiveExams",
-      Item: {
-        ...result.Item,
-        submissions
-      }
-    }));
-
+    await db.send(new PutCommand({ TableName: "LiveExams", Item: { ...result.Item, submissions } }));
     res.json({ message: 'Submitted' });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to submit exam", details: err.message });
   }
 });
 
-
-
-
-const os = require('os');
-const http = require('http');
-
+// --------------------
+// Instance ID (for debugging EC2)
+// --------------------
 app.get('/api/instance-id', async (req, res) => {
   try {
-    // Try AWS metadata (real EC2 instance ID)
-    const options = {
-      host: '169.254.169.254',
-      path: '/latest/meta-data/instance-id',
-      timeout: 1000
-    };
-
+    const options = { host: '169.254.169.254', path: '/latest/meta-data/instance-id', timeout: 1000 };
     const request = http.get(options, (response) => {
       let data = '';
-
       response.on('data', chunk => data += chunk);
       response.on('end', () => {
-        res.json({
-          instanceId: data || "unknown",
-          hostname: os.hostname(),
-          pid: process.pid
-        });
+        res.json({ instanceId: data || "unknown", hostname: os.hostname(), pid: process.pid });
       });
     });
 
     request.on('error', () => {
-      // Fallback if metadata fails
-      res.json({
-        instanceId: "metadata-unavailable",
-        hostname: os.hostname(),
-        pid: process.pid
-      });
+      res.json({ instanceId: "metadata-unavailable", hostname: os.hostname(), pid: process.pid });
     });
-
     request.end();
 
   } catch (err) {
-    res.json({
-      instanceId: "error",
-      hostname: os.hostname(),
-      pid: process.pid
-    });
+    res.json({ instanceId: "error", hostname: os.hostname(), pid: process.pid });
   }
 });
 
-
-
-
-// 404 handler for undefined routes
+// --------------------
+// 404 & Error handlers
+// --------------------
 app.use((req, res) => {
   console.log(`❌ Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: 'Route not found',
-    method: req.method,
-    path: req.originalUrl,
-    timestamp: new Date().toISOString()
-  });
+  res.status(404).json({ error: 'Route not found', method: req.method, path: req.originalUrl, timestamp: new Date().toISOString() });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: err.message 
-  });
+  res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
+// --------------------
+// Start server
+// --------------------
 const PORT = 3001;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅✅✅ Express backend running on port ${PORT}`);
