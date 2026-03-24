@@ -103,6 +103,62 @@ app.get('/health', (req, res) => {
 
 
 
+
+// GET single exam details
+app.get('/api/teacher/exam/:code', async (req, res) => {
+  const { code } = req.params;
+
+  if (!db) {
+    // Mock mode
+    return res.json({
+      examCode: code,
+      examTitle: "Mock Exam Title",
+      questions: [
+        { id: 1, q: 'Mock: What is cloud computing?' },
+        { id: 2, q: 'Mock: What is load balancing?' }
+      ],
+      submissions: [
+        {
+          studentName: "John Doe",
+          score: 8,
+          total: 10,
+          percentage: 80,
+          submittedAt: Date.now(),
+          results: [
+            {
+              questionText: "What is cloud computing?",
+              studentAnswer: 1,
+              correctAnswer: 1,
+              isCorrect: true,
+              options: [
+                { id: 1, text: "Cloud computing" },
+                { id: 2, text: "Local server" }
+              ]
+            }
+          ]
+        }
+      ],
+      warning: "Running in mock mode"
+    });
+  }
+
+  try {
+    const result = await db.send(new GetCommand({
+      TableName: "LiveExams",
+      Key: { examCode: code }
+    }));
+
+    if (!result.Item) return res.status(404).json({ error: 'Exam not found' });
+
+    res.json(result.Item);
+  } catch (err) {
+    console.error("Error fetching exam:", err);
+    res.status(500).json({ error: 'Failed to fetch exam', details: err.message });
+  }
+});
+
+
+
 app.get('/api/teacher/exam/:code', async (req, res) => {
   const { code } = req.params;
 
