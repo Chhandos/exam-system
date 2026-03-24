@@ -54,6 +54,21 @@ app.get('/', (req, res) => {
   });
 });
 
+
+app.get('/api/teacher/exams', (req, res) => {
+  console.log("Fetching teacher exams");
+
+  // Mock response
+  res.json({
+    exams: [
+      { examCode: "ABC123", status: "LIVE" },
+      { examCode: "XYZ789", status: "ENDED" }
+    ]
+  });
+});
+
+
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
