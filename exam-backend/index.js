@@ -215,14 +215,22 @@ app.post('/api/exam/end', async (req, res) => {
   if (!db) return res.json({ message: 'Exam ended (mock mode)', warning: "Running in mock mode" });
 
   try {
-    await db.send(new DeleteCommand({ TableName: "LiveExams", Key: { examCode: code } }));
-    res.json({ message: 'Exam ended' });
+    // Get the exam first
+    const result = await db.send(new GetCommand({ TableName: "LiveExams", Key: { examCode: code } }));
+    if (!result.Item) return res.status(404).json({ error: "Exam not found" });
+
+    // Update status to ENDED
+    await db.send(new PutCommand({
+      TableName: "LiveExams",
+      Item: { ...result.Item, status: "ENDED" }
+    }));
+
+    res.json({ message: `Exam ${code} ended successfully`, examCode: code });
   } catch (err) {
     console.error("Error ending exam:", err);
     res.status(500).json({ error: "Failed to end exam", details: err.message });
   }
 });
-
 // Submit exam
 app.post('/api/exam/submit', async (req, res) => {
   const { code, submission } = req.body;
