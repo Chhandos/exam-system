@@ -283,10 +283,14 @@ app.post('/api/exam/join', async (req, res) => {
 
 // End exam - with mock fallback
 app.post('/api/exam/end', async (req, res) => {
-  const { code } = req.body
-  
+  const { code } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ error: 'Exam code is required' });
+  }
+
   if (!db) {
-    console.log("⚠️ Mock mode: Would delete exam:", code);
+    console.log("⚠️ Mock mode: Would mark exam as ended:", code);
     return res.json({ 
       message: 'Exam ended (mock mode)',
       warning: "Running in mock mode"
@@ -294,17 +298,33 @@ app.post('/api/exam/end', async (req, res) => {
   }
 
   try {
-    await db.send(new DeleteCommand({
+    // Fetch existing exam
+    const result = await db.send(new GetCommand({
       TableName: "LiveExams",
       Key: { examCode: code }
-    }))
+    }));
 
-    res.json({ message: 'Exam ended' })
+    if (!result.Item) {
+      return res.status(404).json({ error: 'Exam not found' });
+    }
+
+    // Update status to ENDED
+    const updatedExam = {
+      ...result.Item,
+      status: "ENDED"
+    };
+
+    await db.send(new PutCommand({
+      TableName: "LiveExams",
+      Item: updatedExam
+    }));
+
+    res.json({ message: `Exam ${code} ended successfully` });
   } catch (err) {
     console.error("Error ending exam:", err);
     res.status(500).json({ error: "Failed to end exam", details: err.message });
   }
-})
+});
 
 // Submit exam - with mock fallback
 app.post('/api/exam/submit', async (req, res) => {
