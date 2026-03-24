@@ -55,16 +55,35 @@ app.get('/', (req, res) => {
 });
 
 
-app.get('/api/teacher/exams', (req, res) => {
-  console.log("Fetching teacher exams");
+// app.get('/api/teacher/exams', (req, res) => {
+//   console.log("Fetching teacher exams");
 
-  // Mock response
-  res.json({
-    exams: [
-      { examCode: "ABC123", status: "LIVE" },
-      { examCode: "XYZ789", status: "ENDED" }
-    ]
-  });
+//   // Mock response
+//   res.json({
+//     exams: [
+//       { examCode: "ABC123", status: "LIVE" },
+//       { examCode: "XYZ789", status: "ENDED" }
+//     ]
+//   });
+// });
+
+
+const { ScanCommand } = require("@aws-sdk/lib-dynamodb");
+
+app.get('/api/teacher/exams', async (req, res) => {
+  try {
+    const result = await db.send(new ScanCommand({
+      TableName: "LiveExams"
+    }));
+
+    res.json({
+      exams: result.Items || []
+    });
+
+  } catch (err) {
+    console.error("Error fetching exams:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
