@@ -1,9 +1,9 @@
 console.log("🔥🔥 FIXED INDEX.JS LOADED 🔥🔥");
 
-const express = require('express')
-const cors = require('cors')
-const os = require('os')
-const http = require('http')
+const express = require('express');
+const cors = require('cors');
+const os = require('os');
+const http = require('http');
 
 // DynamoDB setup
 let db, PutCommand, GetCommand, DeleteCommand, ScanCommand;
@@ -20,7 +20,7 @@ try {
   console.log("⚠️ Running in mock mode (DynamoDB disabled)");
 }
 
-const app = express()
+const app = express();
 
 // Request logging
 app.use((req, res, next) => {
@@ -28,8 +28,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
@@ -75,7 +75,7 @@ app.get('/health', (req, res) => {
 // Signup - writes to DynamoDB
 app.post('/api/teacher/signup', async (req, res) => {
   const { email, name } = req.body;
-
+  if (!email || !name) return res.status(400).json({ error: "Email and name are required" });
   if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
 
   try {
@@ -83,7 +83,6 @@ app.post('/api/teacher/signup', async (req, res) => {
     if (existing.Item) return res.status(409).json({ error: "Teacher already exists" });
 
     const teacherId = "t" + Date.now();
-
     await db.send(new PutCommand({
       TableName: "Teachers",
       Item: { teacherId, email, name }
@@ -100,15 +99,11 @@ app.post('/api/teacher/signup', async (req, res) => {
 // Login - reads from DynamoDB
 app.post('/api/teacher/login', async (req, res) => {
   const { email } = req.body;
-
+  if (!email) return res.status(400).json({ error: "Email is required" });
   if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
 
   try {
-    const result = await db.send(new GetCommand({
-      TableName: "Teachers",
-      Key: { email }
-    }));
-
+    const result = await db.send(new GetCommand({ TableName: "Teachers", Key: { email } }));
     if (!result.Item) return res.status(404).json({ error: "Teacher not found. Please sign up first." });
 
     res.json({
@@ -152,10 +147,8 @@ app.post('/api/exam/create', async (req, res) => {
 
   try {
     if (!db) return res.json({ code, warning: "Running in mock mode (DynamoDB not configured)" });
-
     await db.send(new PutCommand({ TableName: "LiveExams", Item: item }));
     res.json({ code });
-
   } catch (err) {
     console.error("Error creating exam:", err);
     res.status(500).json({ error: "Failed to create exam", details: err.message });
@@ -165,7 +158,7 @@ app.post('/api/exam/create', async (req, res) => {
 // Join exam
 app.post('/api/exam/join', async (req, res) => {
   const { code } = req.body;
-
+  if (!code) return res.status(400).json({ error: "Exam code is required" });
   if (!db) return res.json({ questions: [], warning: "Running in mock mode" });
 
   try {
@@ -174,7 +167,6 @@ app.post('/api/exam/join', async (req, res) => {
     if (result.Item.status !== 'LIVE') return res.status(403).json({ error: 'Exam ended' });
 
     res.json({ questions: result.Item.questions });
-
   } catch (err) {
     console.error("Error joining exam:", err);
     res.status(500).json({ error: "Failed to join exam", details: err.message });
@@ -198,7 +190,6 @@ app.post('/api/exam/end', async (req, res) => {
 // Submit exam
 app.post('/api/exam/submit', async (req, res) => {
   const { code, submission } = req.body;
-
   if (!db) return res.json({ message: 'Submitted (mock mode)', warning: "Running in mock mode" });
 
   try {
@@ -210,7 +201,6 @@ app.post('/api/exam/submit', async (req, res) => {
 
     await db.send(new PutCommand({ TableName: "LiveExams", Item: { ...result.Item, submissions } }));
     res.json({ message: 'Submitted' });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to submit exam", details: err.message });
@@ -230,12 +220,10 @@ app.get('/api/instance-id', async (req, res) => {
         res.json({ instanceId: data || "unknown", hostname: os.hostname(), pid: process.pid });
       });
     });
-
     request.on('error', () => {
       res.json({ instanceId: "metadata-unavailable", hostname: os.hostname(), pid: process.pid });
     });
     request.end();
-
   } catch (err) {
     res.json({ instanceId: "error", hostname: os.hostname(), pid: process.pid });
   }
