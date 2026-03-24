@@ -68,6 +68,27 @@ app.get('/health', (req, res) => {
   });
 });
 
+
+
+
+// Get exam details by examCode (teacher view)
+app.get('/api/teacher/exam/:examCode', async (req, res) => {
+  const { examCode } = req.params;
+  if (!db) return res.status(403).json({ error: "DynamoDB not configured" });
+
+  try {
+    const result = await db.send(new GetCommand({ TableName: "LiveExams", Key: { examCode } }));
+    if (!result.Item) return res.status(404).json({ error: "Exam not found" });
+
+    res.json({ exam: result.Item });
+
+  } catch (err) {
+    console.error("Error fetching exam details:", err);
+    res.status(500).json({ error: "Failed to fetch exam", details: err.message });
+  }
+});
+
+
 // --------------------
 // TEACHER ROUTES (NOW USING LiveExams TABLE)
 // --------------------
