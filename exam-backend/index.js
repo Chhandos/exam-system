@@ -329,16 +329,31 @@ app.post('/api/exam/end', async (req, res) => {
 // Submit exam - with mock fallback
 app.post('/api/exam/submit', async (req, res) => {
   try {
-    const { code, submission } = req.body;
+    const { code, studentName, answers } = req.body;
 
     if (!db) {
+      // Mock mode
       console.log("⚠️ Mock mode: Would submit for exam:", code);
       return res.json({ 
         message: 'Submitted (mock mode)',
-        warning: "Running in mock mode"
+        warning: "Running in mock mode",
+        score: 1,
+        total: 2,
+        percentage: 50,
+        results: [
+          {
+            questionId: 1,
+            questionText: "Mock question 1?",
+            studentAnswer: 1,
+            correctAnswer: 1,
+            isCorrect: true,
+            options: [{ id: 1, text: "A" }, { id: 2, text: "B" }]
+          }
+        ]
       });
     }
 
+    // Fetch exam from DynamoDB
     const result = await db.send(new GetCommand({
       TableName: "LiveExams",
       Key: { examCode: code }
@@ -348,20 +363,59 @@ app.post('/api/exam/submit', async (req, res) => {
       return res.status(403).json({ error: 'Exam not active' });
     }
 
-    const submissions = result.Item.submissions || [];
-    submissions.push(submission || "submitted");
+    const exam = result.Item;
+    const questions = exam.questions || [];
+
+    // Prepare results array
+    const results = questions.map(q => {
+      const studentAnswer = answers?.[q.id] || null;
+      const correctAnswer = q.correctAnswer || 1; // use default if missing
+      return {
+        questionId: q.id,
+        questionText: q.text || q.q,
+        studentAnswer,
+        correctAnswer,
+        isCorrect: studentAnswer == correctAnswer,
+        options: q.options || []
+      };
+    });
+
+    // Compute score and percentage
+    const score = results.filter(r => r.isCorrect).length;
+    const total = questions.length;
+    const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+    // Add submission to DynamoDB
+    const submissionRecord = {
+      studentName: studentName || 'Anonymous',
+      submittedAt: Date.now(),
+      score,
+      total,
+      percentage,
+      results
+    };
+
+    const updatedSubmissions = exam.submissions || [];
+    updatedSubmissions.push(submissionRecord);
 
     await db.send(new PutCommand({
       TableName: "LiveExams",
       Item: {
-        ...result.Item,
-        submissions
+        ...exam,
+        submissions: updatedSubmissions
       }
     }));
 
-    res.json({ message: 'Submitted' });
+    res.json({
+      message: 'Submitted',
+      score,
+      total,
+      percentage,
+      results
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error("Error submitting exam:", err);
     res.status(500).json({ error: "Failed to submit exam", details: err.message });
   }
 });
