@@ -164,49 +164,49 @@ app.get('/api/teacher/exam/:code', async (req, res) => {
 });
 
 
-app.get('/api/teacher/exam/:code', async (req, res) => {
-  const { code } = req.params;
+// app.get('/api/teacher/exam/:code', async (req, res) => {
+//   const { code } = req.params;
 
-  try {
-    if (!db) {
-      console.log("⚠️ Mock mode: returning mock exam for code:", code);
-      return res.json({
-        examCode: code,
-        examTitle: "Mock Exam Title",
-        status: "LIVE",
-        questions: [
-          { id: 1, q: "Mock: What is cloud computing?" },
-          { id: 2, q: "Mock: What is load balancing?" }
-        ],
-        submissions: [],
-        createdAt: Date.now()
-      });
-    }
+//   try {
+//     if (!db) {
+//       console.log("⚠️ Mock mode: returning mock exam for code:", code);
+//       return res.json({
+//         examCode: code,
+//         examTitle: "Mock Exam Title",
+//         status: "LIVE",
+//         questions: [
+//           { id: 1, q: "Mock: What is cloud computing?" },
+//           { id: 2, q: "Mock: What is load balancing?" }
+//         ],
+//         submissions: [],
+//         createdAt: Date.now()
+//       });
+//     }
 
-    const { GetCommand } = require("@aws-sdk/lib-dynamodb");
-    const result = await db.send(new GetCommand({
-      TableName: "LiveExams",
-      Key: { examCode: code }
-    }));
+//     const { GetCommand } = require("@aws-sdk/lib-dynamodb");
+//     const result = await db.send(new GetCommand({
+//       TableName: "LiveExams",
+//       Key: { examCode: code }
+//     }));
 
-    if (!result.Item) {
-      return res.status(404).json({ error: "Exam not found" });
-    }
+//     if (!result.Item) {
+//       return res.status(404).json({ error: "Exam not found" });
+//     }
 
-    res.json({
-      examCode: result.Item.examCode,
-      examTitle: result.Item.examTitle || "Untitled Exam",
-      status: result.Item.status || "LIVE",
-      questions: result.Item.questions || [],
-      submissions: result.Item.submissions || [],
-      createdAt: result.Item.createdAt
-    });
+//     res.json({
+//       examCode: result.Item.examCode,
+//       examTitle: result.Item.examTitle || "Untitled Exam",
+//       status: result.Item.status || "LIVE",
+//       questions: result.Item.questions || [],
+//       submissions: result.Item.submissions || [],
+//       createdAt: result.Item.createdAt
+//     });
 
-  } catch (err) {
-    console.error("Error fetching exam:", err);
-    res.status(500).json({ error: "Failed to fetch exam", details: err.message });
-  }
-});
+//   } catch (err) {
+//     console.error("Error fetching exam:", err);
+//     res.status(500).json({ error: "Failed to fetch exam", details: err.message });
+//   }
+// });
 
 
 
